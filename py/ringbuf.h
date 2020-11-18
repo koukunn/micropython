@@ -29,6 +29,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#ifdef _MSC_VER
+#include "py/mpconfig.h" // For inline.
+#endif
+
 typedef struct _ringbuf_t {
     uint8_t *buf;
     uint16_t size;
@@ -42,11 +46,11 @@ typedef struct _ringbuf_t {
 
 // Dynamic initialization. This needs to become findable as a root pointer!
 #define ringbuf_alloc(r, sz) \
-{ \
-    (r)->buf = m_new(uint8_t, sz); \
-    (r)->size = sz; \
-    (r)->iget = (r)->iput = 0; \
-}
+    { \
+        (r)->buf = m_new(uint8_t, sz); \
+        (r)->size = sz; \
+        (r)->iget = (r)->iput = 0; \
+    }
 
 static inline int ringbuf_get(ringbuf_t *r) {
     if (r->iget == r->iput) {
@@ -57,6 +61,13 @@ static inline int ringbuf_get(ringbuf_t *r) {
         r->iget = 0;
     }
     return v;
+}
+
+static inline int ringbuf_peek(ringbuf_t *r) {
+    if (r->iget == r->iput) {
+        return -1;
+    }
+    return r->buf[r->iget];
 }
 
 static inline int ringbuf_put(ringbuf_t *r, uint8_t v) {
@@ -82,6 +93,7 @@ static inline size_t ringbuf_avail(ringbuf_t *r) {
 
 // Note: big-endian. No-op if not enough room available for both bytes.
 int ringbuf_get16(ringbuf_t *r);
+int ringbuf_peek16(ringbuf_t *r);
 int ringbuf_put16(ringbuf_t *r, uint16_t v);
 
 #endif // MICROPY_INCLUDED_PY_RINGBUF_H

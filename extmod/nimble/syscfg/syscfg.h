@@ -2,12 +2,14 @@
 #define MICROPY_INCLUDED_EXTMOD_NIMBLE_SYSCFG_H
 
 #include "py/mphal.h"
-#include "uart.h"
+
+#include "mpnimbleport.h"
 
 void *nimble_malloc(size_t size);
 void nimble_free(void *ptr);
 void *nimble_realloc(void *ptr, size_t size);
 
+// Redirect NimBLE malloc to the GC heap.
 #define malloc(size) nimble_malloc(size)
 #define free(ptr) nimble_free(ptr)
 #define realloc(ptr, size) nimble_realloc(ptr, size)
@@ -40,7 +42,7 @@ int nimble_sprintf(char *str, const char *fmt, ...);
 /*** nimble */
 #define MYNEWT_VAL_BLE_EXT_ADV (0)
 #define MYNEWT_VAL_BLE_EXT_ADV_MAX_SIZE (31)
-#define MYNEWT_VAL_BLE_MAX_CONNECTIONS (1)
+#define MYNEWT_VAL_BLE_MAX_CONNECTIONS (4)
 #define MYNEWT_VAL_BLE_MULTI_ADV_INSTANCES (0)
 #define MYNEWT_VAL_BLE_ROLE_BROADCASTER (1)
 #define MYNEWT_VAL_BLE_ROLE_CENTRAL (1)
@@ -88,6 +90,7 @@ int nimble_sprintf(char *str, const char *fmt, ...);
 #define MYNEWT_VAL_BLE_GATT_WRITE_NO_RSP (MYNEWT_VAL_BLE_ROLE_CENTRAL)
 #define MYNEWT_VAL_BLE_GATT_WRITE_RELIABLE (MYNEWT_VAL_BLE_ROLE_CENTRAL)
 #define MYNEWT_VAL_BLE_HOST (1)
+#define MYNEWT_VAL_BLE_HS_AUTO_START (1)
 #define MYNEWT_VAL_BLE_HS_DEBUG (0)
 #define MYNEWT_VAL_BLE_HS_FLOW_CTRL (0)
 #define MYNEWT_VAL_BLE_HS_FLOW_CTRL_ITVL (1000)
@@ -95,6 +98,7 @@ int nimble_sprintf(char *str, const char *fmt, ...);
 #define MYNEWT_VAL_BLE_HS_FLOW_CTRL_TX_ON_DISCONNECT (0)
 #define MYNEWT_VAL_BLE_HS_PHONY_HCI_ACKS (0)
 #define MYNEWT_VAL_BLE_HS_REQUIRE_OS (1)
+#define MYNEWT_VAL_BLE_HS_STOP_ON_SHUTDOWN_TIMEOUT (2000)
 #define MYNEWT_VAL_BLE_L2CAP_COC_MAX_NUM (0)
 #define MYNEWT_VAL_BLE_L2CAP_JOIN_RX_FRAGS (1)
 #define MYNEWT_VAL_BLE_L2CAP_MAX_CHANS (3*MYNEWT_VAL_BLE_MAX_CONNECTIONS)
@@ -156,5 +160,8 @@ int nimble_sprintf(char *str, const char *fmt, ...);
 #define MYNEWT_VAL_BLE_HCI_UART_PARITY (HAL_UART_PARITY_NONE)
 #define MYNEWT_VAL_BLE_HCI_UART_PORT (MICROPY_HW_BLE_UART_ID)
 #define MYNEWT_VAL_BLE_HCI_UART_STOP_BITS (1)
+
+/* Required for code that uses BLE_HS_LOG */
+#define MYNEWT_VAL_NEWT_FEATURE_LOGCFG (1)
 
 #endif // MICROPY_INCLUDED_EXTMOD_NIMBLE_SYSCFG_H

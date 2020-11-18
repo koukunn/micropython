@@ -47,6 +47,7 @@
 #include "py/nlr.h"
 #include "py/compile.h"
 #include "py/runtime.h"
+#include "py/persistentcode.h"
 #include "py/repl.h"
 #include "py/gc.h"
 #include "py/mphal.h"
@@ -57,10 +58,13 @@
 #include "modnetwork.h"
 #include "mpthreadport.h"
 
+#if MICROPY_BLUETOOTH_NIMBLE
+#include "extmod/modbluetooth.h"
+#endif
+
 // MicroPython runs as a task under FreeRTOS
 #define MP_TASK_PRIORITY        (ESP_TASK_PRIO_MIN + 1)
 #define MP_TASK_STACK_SIZE      (16 * 1024)
-#define MP_TASK_STACK_LEN       (MP_TASK_STACK_SIZE / sizeof(StackType_t))
 
 int vprintf_null(const char *format, va_list ap) {
     // do nothing: this is used as a log target during raw repl mode
@@ -70,7 +74,7 @@ int vprintf_null(const char *format, va_list ap) {
 void mp_task(void *pvParameter) {
     volatile uint32_t sp = (uint32_t)get_sp();
     #if MICROPY_PY_THREAD
-    mp_thread_init(pxTaskGetStackStart(NULL), MP_TASK_STACK_LEN);
+    mp_thread_init(pxTaskGetStackStart(NULL), MP_TASK_STACK_SIZE / sizeof(uintptr_t));
     #endif
     uart_init();
 
@@ -78,7 +82,7 @@ void mp_task(void *pvParameter) {
     #if CONFIG_ESP32_SPIRAM_SUPPORT || CONFIG_SPIRAM_SUPPORT
     // Try to use the entire external SPIRAM directly for the heap
     size_t mp_task_heap_size;
-    void *mp_task_heap = (void*)0x3f800000;
+    void *mp_task_heap = (void *)0x3f800000;
     switch (esp_spiram_get_chip_size()) {
         case ESP_SPIRAM_SIZE_16MBITS:
             mp_task_heap_size = 2 * 1024 * 1024;
@@ -135,6 +139,10 @@ soft_reset:
         }
     }
 
+    #if MICROPY_BLUETOOTH_NIMBLE
+    mp_bluetooth_deinit();
+    #endif
+
     machine_timer_deinit_all();
 
     #if MICROPY_PY_THREAD
@@ -160,7 +168,7 @@ void app_main(void) {
         nvs_flash_erase();
         nvs_flash_init();
     }
-    xTaskCreatePinnedToCore(mp_task, "mp_task", MP_TASK_STACK_LEN, NULL, MP_TASK_PRIORITY, &mp_main_task_handle, MP_TASK_COREID);
+    xTaskCreatePinnedToCore(mp_task, "mp_task", MP_TASK_STACK_SIZE / sizeof(StackType_t), NULL, MP_TASK_PRIORITY, &mp_main_task_handle, MP_TASK_COREID);
 }
 
 void nlr_jump_fail(void *val) {
@@ -171,4 +179,17 @@ void nlr_jump_fail(void *val) {
 // modussl_mbedtls uses this function but it's not enabled in ESP IDF
 void mbedtls_debug_set_threshold(int threshold) {
     (void)threshold;
+}
+
+void *esp_native_code_commit(void *buf, size_t len, void *reloc) {
+    len = (len + 3) & ~3;
+    uint32_t *p = heap_caps_malloc(len, MALLOC_CAP_EXEC);
+    if (p == NULL) {
+        m_malloc_fail(len);
+    }
+    if (reloc) {
+        mp_native_relocate(reloc, buf, (uintptr_t)p);
+    }
+    memcpy(p, buf, len);
+    return p;
 }
